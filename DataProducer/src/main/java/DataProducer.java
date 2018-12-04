@@ -1,3 +1,15 @@
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.Properties;
+
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.json.JSONObject;
+
 public class DataProducer {
 
     public static void main(String[] args) {
@@ -15,7 +27,49 @@ public class DataProducer {
 
         */
         //TODO: Set Properties
+        Properties props = new Properties();
+        // Follow the example from https://kafka.apache.org/0100/javadoc/index.html?org/apache/kafka/clients/producer/KafkaProducer.html
+        props.put("bootstrap.servers", "ec2-35-171-166-128.compute-1.amazonaws.com:9092");
+        props.put("acks", "all");
+        props.put("retries", 0);
+        props.put("batch.size", 16384);
+        props.put("linger.ms", 1);
+        props.put("buffer.memory", 33554432);
+        props.put("key.serializer", "org.apache.kafka.common.serialization.IntegerSerializer");
+        props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+
+        // Create the producer and configure the properties
+        Producer<Integer, String> producer = new KafkaProducer<>(props);
 
         //TODO: Read json file and send to stream
+        // Read the tracefile
+        File file = new File("tracefile");
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(file));
+            String line;
+            // Scan the tracefile line by line
+            while ((line = br.readLine()) != null) {
+                // Parse every line and extract relevant information
+                JSONObject jsonObject = new JSONObject(line);
+                String type = jsonObject.getString("type");
+                int blockId = jsonObject.getInt("blockId");
+                // Judge which topic to sent to based on the type
+                if (type.equals("DRIVER_LOCATION")) {
+                    // Send to the driver-locations topic
+                    producer.send(new ProducerRecord<Integer, String>("driver-locations", blockId % 5, blockId, line));
+                } else {
+                    // Send to the events topic
+                    producer.send(new ProducerRecord<Integer, String>("events", blockId % 5, blockId, line));
+                }
+            }
+            // Finish the file reading process
+            br.close();
+        } catch (FileNotFoundException e) {
+            System.err.println("tracefile not found!");
+        } catch (IOException e) {
+            System.err.println("IO exception!");
+        }
+        // Finish with the producer
+        producer.close();
     }
 }
