@@ -56,6 +56,9 @@ public class DataProducer {
                 if (type.equals("RIDER_INTEREST")) {
                     int userId = jsonObject.getInt("userId");
                     producer.send(new ProducerRecord<Integer, String>("events", userId % 5, userId, line));
+                } else if (type.equals("RIDE_REQUEST")) {
+                    int userId = jsonObject.getInt("clientId");
+                    producer.send(new ProducerRecord<Integer, String>("events", userId % 5, userId, line));
                 } else if (!type.equals("DRIVER_LOCATION")){
                     // Send to the events topic
                     int blockId = jsonObject.getInt("blockId");
